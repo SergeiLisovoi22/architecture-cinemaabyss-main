@@ -7,7 +7,6 @@ on:
       - 'src/**'
       - '.github/workflows/docker-build-push.yml'
       - 'docker-compose.ci.yml'
-      - 'docker-compose.yml'
       - 'tests/**'
   release:
     types: [published]
@@ -29,39 +28,30 @@ jobs:
       - name: Checkout main repo (architecture-cinemaabyss-main)
         uses: actions/checkout@v4
 
-      # === ВАЖНО ===
-      # Чекаут внешних репозиториев РОВНО в те каталоги,
-      # которые использует твой compose/шаги сборки.
       - name: Checkout external repo (proxy-service) into src/microservices/proxy/cinemaabyss-proxy-service
         uses: actions/checkout@v4
         with:
           repository: ${{ env.OWNER }}/${{ env.PROXY_REPO }}
-          ref: main
+          ref: main          # если Dockerfile в dev — поменяй на: dev
           path: src/microservices/proxy/cinemaabyss-proxy-service
 
       - name: Checkout external repo (events-service) into src/microservices/events
         uses: actions/checkout@v4
         with:
           repository: ${{ env.OWNER }}/${{ env.EVENTS_REPO }}
-          ref: main
+          ref: main          # если Dockerfile в dev — поменяй на: dev
           path: src/microservices/events
 
-      - name: Debug — list folders to ensure Dockerfiles exist
+      - name: Debug — ensure Dockerfiles exist
         run: |
-          ls -la
-          echo "== proxy-service =="
           ls -la ./src/microservices/proxy/cinemaabyss-proxy-service || true
-          echo "== events-service =="
           ls -la ./src/microservices/events || true
-          echo "== show Dockerfiles =="
-          [ -f ./src/microservices/proxy/cinemaabyss-proxy-service/Dockerfile ] && echo "proxy Dockerfile OK" || (echo "proxy Dockerfile MISSING" && exit 1)
-          [ -f ./src/microservices/events/Dockerfile ] && echo "events Dockerfile OK" || (echo "events Dockerfile MISSING" && exit 1)
+          test -f ./src/microservices/proxy/cinemaabyss-proxy-service/Dockerfile || (echo "Proxy Dockerfile not found" && exit 1)
+          test -f ./src/microservices/events/Dockerfile || (echo "Events Dockerfile not found" && exit 1)
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Логин в GHCR. Предпочтительно использовать PAT с правами read/write packages.
-      # Добавь в секреты репозитория GHCR_PAT (classic token: read:packages, write:packages, repo)
       - name: Log in to GHCR (with PAT)
         uses: docker/login-action@v3
         with:
@@ -69,7 +59,7 @@ jobs:
           username: ${{ env.OWNER }}
           password: ${{ secrets.GHCR_PAT }}
 
-      # ===== СБОРКА/ПУШ PROXY =====
+      # ===== PROXY =====
       - name: Meta (proxy-service)
         id: meta-proxy
         uses: docker/metadata-action@v5
@@ -84,13 +74,14 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./src/microservices/proxy/cinemaabyss-proxy-service
+          dockerfile: Dockerfile   # если у тебя файл называется "dockerfile" — поменяй
           push: true
           tags: ${{ steps.meta-proxy.outputs.tags }}
           labels: ${{ steps.meta-proxy.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ===== СБОРКА/ПУШ EVENTS =====
+      # ===== EVENTS =====
       - name: Meta (events-service)
         id: meta-events
         uses: docker/metadata-action@v5
@@ -105,26 +96,23 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./src/microservices/events
+          dockerfile: Dockerfile   # если у тебя файл называется "dockerfile" — поменяй
           push: true
           tags: ${{ steps.meta-events.outputs.tags }}
           labels: ${{ steps.meta-events.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ===== ЛОКАЛЬНЫЕ API-ТЕСТЫ ЧЕРЕЗ docker compose =====
+      # ===== API TESTS через compose.ci =====
       - name: Set up Node for tests
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # Поднимаем инфраструктуру для тестов.
-      # В docker-compose.ci.yml должны быть использованы только IMAGES из GHCR (latest),
-      # без локальных context, чтобы просто pull-нулись собранные выше образы.
       - name: Compose Up (infra for tests)
         run: |
           docker compose -f docker-compose.ci.yml up -d
           echo "Wait for services to be ready..."
-          # простая задержка + хелсчек
           sleep 25
           docker ps
           docker compose -f docker-compose.ci.yml logs --no-color || true
@@ -133,10 +121,9 @@ jobs:
         working-directory: ./tests/postman
         run: npm ci
 
-      - name: Run API tests (kubernetes/docker flavor not needed here)
+      - name: Run API tests
         working-directory: ./tests/postman
         env:
-          # если твоим тестам нужны переменные окружения — добавь здесь
           BASE_URL: http://localhost:8000
         run: npm run test:docker
 
