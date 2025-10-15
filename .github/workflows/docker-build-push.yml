@@ -1,0 +1,113 @@
+name: Docker Build, Push & API Tests
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - '.github/workflows/docker-build-push.yml'
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # требуется для ghcr
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ВАЖНО: для пуша в пакеты ДРУГИХ репозиториев (не текущего) нужен PAT
+      - name: Log in to GHCR (with PAT)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: SergeiLisovoi22
+          password: ${{ secrets.GHCR_PAT }}
+
+      # ---------- метаданные для cinemaabyss-proxy-service ----------
+      - name: Meta (proxy)
+        id: meta-proxy
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/SergeiLisovoi22/cinemaabyss-proxy-service
+          tags: |
+            type=sha,format=short
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/SergeiLisovoi22/cinemaabyss-proxy-service
+
+      # ---------- метаданные для events-service ----------
+      - name: Meta (events)
+        id: meta-events
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/SergeiLisovoi22/events-service
+          tags: |
+            type=sha,format=short
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/SergeiLisovoi22/events-service
+
+      # ---------- Build & Push: PROXY ----------
+      - name: Build & Push (proxy-service)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/microservices/proxy/cinemaabyss-proxy-service
+          push: true
+          tags: ${{ steps.meta-proxy.outputs.tags }}
+          labels: ${{ steps.meta-proxy.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ---------- Build & Push: EVENTS ----------
+      - name: Build & Push (events-service)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/microservices/events
+          push: true
+          tags: ${{ steps.meta-events.outputs.tags }}
+          labels: ${{ steps.meta-events.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ---------- API TESTS (docker-compose + newman в одной сети) ----------
+      - name: Docker Compose Up
+        run: |
+          docker compose up -d --build
+          echo "Waiting services to boot..."
+          sleep 25
+          docker ps
+
+      - name: Run API tests (newman inside docker network)
+        run: |
+          NET=$(docker network ls --format '{{.Name}}' | grep cinemaabyss-network || true)
+          if [ -z "$NET" ]; then
+            NET=$(docker network ls --format '{{.Name}}' | head -n1)
+          fi
+          docker run --rm \
+            --network="$NET" \
+            -v "$PWD/tests/postman:/etc/newman" \
+            postman/newman:alpine \
+            run "/etc/newman/CinemaAbyss.postman_collection.json" \
+            -e "/etc/newman/environments/docker.postman_environment.json" \
+            --reporters cli
+
+      - name: Docker Compose Down
+        if: always()
+        run: docker compose down -v
