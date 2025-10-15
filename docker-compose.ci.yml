@@ -1,8 +1,7 @@
 services:
   proxy-service:
     image: ghcr.io/sergeilisovoi22/cinemaabyss-proxy-service:latest
-    build: null
 
   events-service:
     image: ghcr.io/sergeilisovoi22/events-service:latest
-    build: null
+

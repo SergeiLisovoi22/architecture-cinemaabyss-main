@@ -24,28 +24,26 @@ jobs:
       - name: Checkout monorepo
         uses: actions/checkout@v4
 
+      # Отладка — убеждаемся, что подхватился именно ЭТОТ workflow
       - name: Show workflows present
         run: ls -la .github/workflows && cat .github/workflows/docker-build-push.yml
 
-      - name: Fail if old path still present in workflow
-        run: |
-          if grep -R "./src/microservices/proxy/cinemaabyss-proxy-service" .github/workflows/docker-build-push.yml; then
-            echo "❌ В файле ещё остался старый context для proxy"; exit 1; 
-          fi
-
+      # Билдхост
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GHCR (with PAT)
+      # Логинимся в GHCR для push образов
+      - name: Log in to GHCR (for build/push)
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: SergeiLisovoi22
           password: ${{ secrets.GHCR_PAT }}
 
+      # Метаданные для тегов/лейблов
       - name: Meta (proxy)
         id: meta-proxy
         uses: docker/metadata-action@v5
@@ -68,11 +66,14 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/SergeiLisovoi22/events-service
 
-      # >>>>>>>>> Git URL contexts (без локальных путей) <<<<<<<<<
+      # ---- Сборка из Git URL контекста (без локальных путей) ----
+      # Если активная ветка в сервисах — dev, замени #main на #dev
       - name: Build & Push (proxy-service)
         uses: docker/build-push-action@v5
         with:
           context: https://github.com/SergeiLisovoi22/cinemaabyss-proxy-service.git#main
+          # Если Dockerfile не в корне репозитория сервиса — добавь строку ниже:
+          # file: ./Dockerfile
           push: true
           tags: ${{ steps.meta-proxy.outputs.tags }}
           labels: ${{ steps.meta-proxy.outputs.labels }}
@@ -83,13 +84,15 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: https://github.com/SergeiLisovoi22/events-service.git#main
+          # file: ./Dockerfile
           push: true
           tags: ${{ steps.meta-events.outputs.tags }}
           labels: ${{ steps.meta-events.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Ensure docker-compose.ci.yml exists
+      # ---- CI-оверлей: подменяем build->image для proxy/events ----
+      - name: Write docker-compose.ci.yml overlay
         run: |
           cat > docker-compose.ci.yml <<'YAML'
           services:
@@ -100,15 +103,35 @@ jobs:
               image: ghcr.io/sergeilisovoi22/events-service:latest
               build: null
           YAML
+          echo "docker-compose.ci.yml ->"
+          cat docker-compose.ci.yml
 
+      # ---- ВАЖНО: отдельный логин в GHCR перед compose (для pull образов) ----
+      - name: Log in to GHCR (for compose pull)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      # ---- Поднимаем окружение: БАЗОВЫЙ compose + overlay ----
       - name: Docker Compose Up
         run: |
           docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+          echo "Waiting for services to become healthy..."
+          # Ждём, пока монолит ответит (30 * 2 сек = до ~60 сек)
           for i in {1..30}; do
-            curl -sf http://localhost:8080/health >/dev/null && break || sleep 2
+            if curl -sf http://localhost:8080/health >/dev/null; then
+              echo "Monolith is up";
+              break
+            fi
+            sleep 2
           done
           docker ps
+          echo "--- compose services ---"
+          docker compose ls
 
+      # ---- API-тесты newman ----
       - name: Run API tests (newman)
         run: |
           NET=$(docker network ls --format '{{.Name}}' | grep -E 'cinemaabyss|default' | head -n1)
