@@ -6,12 +6,17 @@ on:
     paths:
       - 'src/**'
       - '.github/workflows/docker-build-push.yml'
+      - 'docker-compose.ci.yml'
+      - 'docker-compose.yml'
+      - 'tests/**'
   release:
-    types: [ published ]
-  workflow_dispatch:
+    types: [published]
 
 env:
   REGISTRY: ghcr.io
+  OWNER: SergeiLisovoi22
+  PROXY_REPO: cinemaabyss-proxy-service
+  EVENTS_REPO: events-service
 
 jobs:
   build-and-push:
@@ -21,128 +26,120 @@ jobs:
       packages: write
 
     steps:
-      - name: Checkout monorepo
+      - name: Checkout main repo (architecture-cinemaabyss-main)
         uses: actions/checkout@v4
 
-      # Отладка — убеждаемся, что подхватился именно ЭТОТ workflow
-      - name: Show workflows present
-        run: ls -la .github/workflows && cat .github/workflows/docker-build-push.yml
+      # === ВАЖНО ===
+      # Чекаут внешних репозиториев РОВНО в те каталоги,
+      # которые использует твой compose/шаги сборки.
+      - name: Checkout external repo (proxy-service) into src/microservices/proxy/cinemaabyss-proxy-service
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.OWNER }}/${{ env.PROXY_REPO }}
+          ref: main
+          path: src/microservices/proxy/cinemaabyss-proxy-service
 
-      # Билдхост
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Checkout external repo (events-service) into src/microservices/events
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.OWNER }}/${{ env.EVENTS_REPO }}
+          ref: main
+          path: src/microservices/events
+
+      - name: Debug — list folders to ensure Dockerfiles exist
+        run: |
+          ls -la
+          echo "== proxy-service =="
+          ls -la ./src/microservices/proxy/cinemaabyss-proxy-service || true
+          echo "== events-service =="
+          ls -la ./src/microservices/events || true
+          echo "== show Dockerfiles =="
+          [ -f ./src/microservices/proxy/cinemaabyss-proxy-service/Dockerfile ] && echo "proxy Dockerfile OK" || (echo "proxy Dockerfile MISSING" && exit 1)
+          [ -f ./src/microservices/events/Dockerfile ] && echo "events Dockerfile OK" || (echo "events Dockerfile MISSING" && exit 1)
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Логинимся в GHCR для push образов
-      - name: Log in to GHCR (for build/push)
+      # Логин в GHCR. Предпочтительно использовать PAT с правами read/write packages.
+      # Добавь в секреты репозитория GHCR_PAT (classic token: read:packages, write:packages, repo)
+      - name: Log in to GHCR (with PAT)
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: SergeiLisovoi22
+          username: ${{ env.OWNER }}
           password: ${{ secrets.GHCR_PAT }}
 
-      # Метаданные для тегов/лейблов
-      - name: Meta (proxy)
+      # ===== СБОРКА/ПУШ PROXY =====
+      - name: Meta (proxy-service)
         id: meta-proxy
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/sergeilisovoi22/cinemaabyss-proxy-service
+          images: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ env.PROXY_REPO }}
           tags: |
             type=raw,value=latest
             type=sha,format=short
-          labels: |
-            org.opencontainers.image.source=https://github.com/SergeiLisovoi22/cinemaabyss-proxy-service
 
-      - name: Meta (events)
-        id: meta-events
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/sergeilisovoi22/events-service
-          tags: |
-            type=raw,value=latest
-            type=sha,format=short
-          labels: |
-            org.opencontainers.image.source=https://github.com/SergeiLisovoi22/events-service
-
-      # ---- Сборка из Git URL контекста (без локальных путей) ----
-      # Если активная ветка в сервисах — dev, замени #main на #dev
       - name: Build & Push (proxy-service)
         uses: docker/build-push-action@v5
         with:
-          context: https://github.com/SergeiLisovoi22/cinemaabyss-proxy-service.git#main
-          # Если Dockerfile не в корне репозитория сервиса — добавь строку ниже:
-          # file: ./Dockerfile
+          context: ./src/microservices/proxy/cinemaabyss-proxy-service
           push: true
           tags: ${{ steps.meta-proxy.outputs.tags }}
           labels: ${{ steps.meta-proxy.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # ===== СБОРКА/ПУШ EVENTS =====
+      - name: Meta (events-service)
+        id: meta-events
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ env.EVENTS_REPO }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+
       - name: Build & Push (events-service)
         uses: docker/build-push-action@v5
         with:
-          context: https://github.com/SergeiLisovoi22/events-service.git#main
-          # file: ./Dockerfile
+          context: ./src/microservices/events
           push: true
           tags: ${{ steps.meta-events.outputs.tags }}
           labels: ${{ steps.meta-events.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ---- CI-оверлей: подменяем build->image для proxy/events ----
-      - name: Write docker-compose.ci.yml overlay
-        run: |
-          cat > docker-compose.ci.yml <<'YAML'
-          services:
-            proxy-service:
-              image: ghcr.io/sergeilisovoi22/cinemaabyss-proxy-service:latest
-              build: null
-            events-service:
-              image: ghcr.io/sergeilisovoi22/events-service:latest
-              build: null
-          YAML
-          echo "docker-compose.ci.yml ->"
-          cat docker-compose.ci.yml
-
-      # ---- ВАЖНО: отдельный логин в GHCR перед compose (для pull образов) ----
-      - name: Log in to GHCR (for compose pull)
-        uses: docker/login-action@v3
+      # ===== ЛОКАЛЬНЫЕ API-ТЕСТЫ ЧЕРЕЗ docker compose =====
+      - name: Set up Node for tests
+        uses: actions/setup-node@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GHCR_PAT }}
+          node-version: '20'
 
-      # ---- Поднимаем окружение: БАЗОВЫЙ compose + overlay ----
-      - name: Docker Compose Up
+      # Поднимаем инфраструктуру для тестов.
+      # В docker-compose.ci.yml должны быть использованы только IMAGES из GHCR (latest),
+      # без локальных context, чтобы просто pull-нулись собранные выше образы.
+      - name: Compose Up (infra for tests)
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
-          echo "Waiting for services to become healthy..."
-          # Ждём, пока монолит ответит (30 * 2 сек = до ~60 сек)
-          for i in {1..30}; do
-            if curl -sf http://localhost:8080/health >/dev/null; then
-              echo "Monolith is up";
-              break
-            fi
-            sleep 2
-          done
+          docker compose -f docker-compose.ci.yml up -d
+          echo "Wait for services to be ready..."
+          # простая задержка + хелсчек
+          sleep 25
           docker ps
-          echo "--- compose services ---"
-          docker compose ls
+          docker compose -f docker-compose.ci.yml logs --no-color || true
 
-      # ---- API-тесты newman ----
-      - name: Run API tests (newman)
-        run: |
-          NET=$(docker network ls --format '{{.Name}}' | grep -E 'cinemaabyss|default' | head -n1)
-          docker run --rm \
-            --network="$NET" \
-            -v "$PWD/tests/postman:/etc/newman" \
-            postman/newman:alpine \
-            run "/etc/newman/CinemaAbyss.postman_collection.json" \
-            -e "/etc/newman/environments/docker.postman_environment.json" \
-            --reporters cli
+      - name: Install test deps
+        working-directory: ./tests/postman
+        run: npm ci
 
-      - name: Docker Compose Down
+      - name: Run API tests (kubernetes/docker flavor not needed here)
+        working-directory: ./tests/postman
+        env:
+          # если твоим тестам нужны переменные окружения — добавь здесь
+          BASE_URL: http://localhost:8000
+        run: npm run test:docker
+
+      - name: Compose Down
         if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
+        run: docker compose -f docker-compose.ci.yml down -v
