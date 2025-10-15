@@ -2,11 +2,11 @@ services:
   proxy-service:
     image: ghcr.io/sergeilisovoi22/cinemaabyss-proxy-service:latest
     build:
-      context: ./_ext/proxy
+      context: ./_ext/proxy/cinemaabyss-proxy-service
       dockerfile: Dockerfile
 
   events-service:
     image: ghcr.io/sergeilisovoi22/events-service:latest
     build:
-      context: ./_ext/events
+      context: ./_ext/events/events-service    # ← добавить подпапку events-service
       dockerfile: Dockerfile
