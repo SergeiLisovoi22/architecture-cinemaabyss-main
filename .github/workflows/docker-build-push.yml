@@ -45,7 +45,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: https://github.com/SergeiLisovoi22/events-service.git#main
-          file: events-service/Dockerfile  # ← Dockerfile в подпапке
+          file: Dockerfile
           push: true
           tags: |
             ghcr.io/${{ env.OWNER }}/events-service:latest
@@ -55,7 +55,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: https://github.com/SergeiLisovoi22/cinemaabyss-proxy-service.git#main
-          file: cinemaabyss-proxy-service/Dockerfile  # ← Dockerfile в подпапке
+          file: Dockerfile
           push: true
           tags: |
             ghcr.io/${{ env.OWNER }}/cinemaabyss-proxy-service:latest
