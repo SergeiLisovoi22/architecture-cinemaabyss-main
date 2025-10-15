@@ -78,7 +78,14 @@ jobs:
 
       - name: Run API tests
         run: |
+          echo "Waiting for services to be fully ready..."
+          sleep 30
+          
+          echo "Running Postman tests..."
+          cd tests/postman
           npm ci
+          # Покажем доступные скрипты для отладки
+          echo "Available npm scripts:"
           npm run test:local || npm run test:docker || true
 
       - name: Docker compose logs (on fail)
