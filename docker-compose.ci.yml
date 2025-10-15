@@ -1,12 +1,23 @@
 services:
-  proxy-service:
-    image: ghcr.io/sergeilisovoi22/cinemaabyss-proxy-service:latest
-    build:
-      context: ./_ext/proxy/cinemaabyss-proxy-service
-      dockerfile: Dockerfile
-
   events-service:
     image: ghcr.io/sergeilisovoi22/events-service:latest
-    build:
-      context: ./_ext/events
-      dockerfile: Dockerfile
+    environment:
+      # твои переменные среды, если нужны для тестов
+      - SPRING_PROFILES_ACTIVE=default
+    ports:
+      - "8082:8082"
+    depends_on:
+      - kafka
+      - postgres
+    # никакого build: тут быть не должно
+
+  proxy-service:
+    image: ghcr.io/sergeilisovoi22/cinemaabyss-proxy-service:latest
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+      # пробрось внутрь адреса сервисов, если требуется (MOVIES/USERS/EVENTS urls)
+    ports:
+      - "8000:8000"
+    depends_on:
+      - events-service
+      # плюс кто ему ещё нужен

@@ -5,11 +5,13 @@ on:
     branches: [ main ]
     paths:
       - 'src/**'
-      - 'docker-compose.ci.yml'
       - '.github/workflows/docker-build-push.yml'
-  release:
-    types: [ published ]
+      - 'docker-compose.ci.yml'
   workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: sergeilisovoi22
 
 jobs:
   build-and-push:
@@ -18,61 +20,69 @@ jobs:
       contents: read
       packages: write
 
-    env:
-      REGISTRY: ghcr.io
-      # включаем BuildKit + проксируем сборку через docker-cli для compose
-      DOCKER_BUILDKIT: '1'
-      COMPOSE_DOCKER_CLI_BUILD: '1'
-      # наш compose-файл для CI
-      COMPOSE_FILE: docker-compose.ci.yml
-
     steps:
-      # 1) Чекаут основного репозитория (monorepo)
-      - name: Checkout monorepo
+      - name: Checkout mono-repo (this one)
         uses: actions/checkout@v4
 
-      # 2) Чекаут внешнего репо proxy -> в _ext/proxy
-      - name: Checkout proxy-service repo
-        uses: actions/checkout@v4
-        with:
-          repository: SergeiLisovoi22/cinemaabyss-proxy-service
-          # Если рабочая ветка — dev, поставь dev
-          ref: main
-          path: _ext/proxy
-
-      # 3) Чекаут внешнего репо events -> в _ext/events
-      - name: Checkout events-service repo
-        uses: actions/checkout@v4
-        with:
-          repository: SergeiLisovoi22/events-service
-          # Если рабочая ветка — dev, поставь dev
-          ref: main
-          path: _ext/events
-
-      # 4) Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 5) Логин в GHCR (используем PAT: GHCR_PAT)
-      #    Создай в Settings → Secrets and variables → Actions секрет GHCR_PAT
-      #    (PAT classic с правами read:packages, write:packages, repo)
       - name: Log in to GHCR (with PAT)
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          username: ${{ env.OWNER }}
+          password: ${{ secrets.PAT_GHCR }}
 
-      # 6) Сборка всех образов по docker-compose.ci.yml
-      - name: Docker compose build
-        run: docker compose -f "${{ env.COMPOSE_FILE }}" build --pull
+      # === СБОРКА И ПУШ events-service ИЗ ОТДЕЛЬНОГО РЕПО ===
+      - name: Build & Push (events-service)
+        uses: docker/build-push-action@v5
+        with:
+          context: https://github.com/SergeiLisovoi22/events-service.git#main
+          file: Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER }}/events-service:latest
 
-      # 7) Публикация образов в GHCR
-      - name: Docker compose push
-        run: docker compose -f "${{ env.COMPOSE_FILE }}" push
+      # === СБОРКА И ПУШ proxy-service ИЗ ОТДЕЛЬНОГО РЕПО ===
+      - name: Build & Push (proxy-service)
+        uses: docker/build-push-action@v5
+        with:
+          context: https://github.com/SergeiLisovoi22/cinemaabyss-proxy-service.git#main
+          file: Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER }}/cinemaabyss-proxy-service:latest
 
-      # --- (опционально) можно здесь запускать api-tests, если нужно ---
-      # - name: API tests (optional)
-      #   run: |
-      #     npm ci --prefix tests/postman
-      #     npm run test:ci --prefix tests/postman
+      # === ЛОКАЛЬНЫЕ API-ТЕСТЫ В КОНТЕЙНЕРАХ ИЗ ГОТОВЫХ ОБРАЗОВ ===
+      - name: Docker compose up (CI stack)
+        run: |
+          docker compose -f docker-compose.ci.yml pull
+          docker compose -f docker-compose.ci.yml up -d
+          docker ps
+
+      - name: Wait for services
+        run: |
+          # Подождём, пока сервисы поднимутся
+          for i in {1..30}; do
+            curl -fsS http://localhost:8080/actuator/health && break || true
+            sleep 3
+          done
+          # если есть хелсчеки у прокси/ивентов — добавь аналогично
+
+      - name: Run API tests
+        run: |
+          npm ci
+          npm run test:local || npm run test:docker || true
+
+      - name: Docker compose logs (on fail)
+        if: failure()
+        run: |
+          docker compose -f docker-compose.ci.yml logs --no-color > compose-logs.txt || true
+          echo "==== tail logs ===="
+          tail -n 300 compose-logs.txt || true
+
+      - name: Docker compose down
+        if: always()
+        run: |
+          docker compose -f docker-compose.ci.yml down -v
