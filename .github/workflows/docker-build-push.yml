@@ -39,17 +39,17 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: https://github.com/SergeiLisovoi22/events-service.git#main
-          file: Dockerfile
+          file: events-service/Dockerfile  # ← Dockerfile в подпапке
           push: true
           tags: |
             ghcr.io/${{ env.OWNER }}/events-service:latest
 
-      # === СБОРКА И ПУШ proxy-service ИЗ ОТДЕЛЬНОГО РЕПО ===
+  # === СБОРКА И ПУШ proxy-service ИЗ ОТДЕЛЬНОГО РЕПО ===
       - name: Build & Push (proxy-service)
         uses: docker/build-push-action@v5
         with:
           context: https://github.com/SergeiLisovoi22/cinemaabyss-proxy-service.git#main
-          file: Dockerfile
+          file: cinemaabyss-proxy-service/Dockerfile  # ← Dockerfile в подпапке
           push: true
           tags: |
             ghcr.io/${{ env.OWNER }}/cinemaabyss-proxy-service:latest
