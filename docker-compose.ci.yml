@@ -8,5 +8,5 @@ services:
   events-service:
     image: ghcr.io/sergeilisovoi22/events-service:latest
     build:
-      context: ./_ext/events/events-service    # ← добавить подпапку events-service
+      context: ./_ext/events
       dockerfile: Dockerfile
