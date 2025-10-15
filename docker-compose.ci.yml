@@ -2,9 +2,11 @@ services:
   proxy-service:
     image: ghcr.io/sergeilisovoi22/cinemaabyss-proxy-service:latest
     build:
-      context: https://github.com/SergeiLisovoi22/cinemaabyss-proxy-service.git#main
+      context: ./_ext/proxy
+      dockerfile: Dockerfile
 
   events-service:
     image: ghcr.io/sergeilisovoi22/events-service:latest
     build:
-      context: https://github.com/SergeiLisovoi22/events-service.git#main
+      context: ./_ext/events
+      dockerfile: Dockerfile
