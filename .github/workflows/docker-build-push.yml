@@ -37,8 +37,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ env.OWNER }}
-          password: ${{ secrets.PAT_GHCR }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
 
       # === СБОРКА И ПУШ events-service ИЗ ОТДЕЛЬНОГО РЕПО ===
       - name: Build & Push (events-service)
