@@ -16,10 +16,10 @@ spec:
         app: events-service
     spec:
       imagePullSecrets:
-        - name: ghcr-secret
+        - name: dockerconfigjson
       containers:
         - name: events-service
-          image: ghcr.io/SergeiLisovoi22/events-service:latest
+          image: ghcr.io/sergeilisovoi22/events-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8082
@@ -27,7 +27,7 @@ spec:
             - name: SERVER_PORT
               value: "8082"
             - name: KAFKA_HOST
-              value: "kafka:9092"
+              value: "kafka.cinemaabyss.svc.cluster.local:9092"
           readinessProbe:
             httpGet:
               path: /api/events/health

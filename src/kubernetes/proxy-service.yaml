@@ -16,10 +16,10 @@ spec:
         app: proxy-service
     spec:
       imagePullSecrets:
-        - name: ghcr-secret
+        - name: dockerconfigjson
       containers:
         - name: proxy-service
-          image: ghcr.io/SergeiLisovoi22/cinemaabyss-proxy-service:latest
+          image: ghcr.io/sergeilisovoi22/cinemaabyss-proxy-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
