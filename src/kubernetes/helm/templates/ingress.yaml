@@ -1,33 +1,41 @@
-{{- if .Values.ingress.enabled -}}
+{{- /*
+templates/ingress.yaml
+Рендерит один Ingress на основе .Values.ingress.* и .Values.ingress.hosts.
+Поддерживает:
+  - spec.ingressClassName
+  - annotations
+  - несколько hosts
+  - произвольный список paths у каждого host, где для каждого пути задаются:
+      path, pathType, service (имя сервиса), port (число)
+*/ -}}
+{{- if .Values.ingress.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: cinemaabyss-ingress
-  namespace: {{ .Values.global.namespace }}
+  name: {{ include "cinemaabyss.fullname" . }}-ingress
   labels:
-    app.kubernetes.io/name: {{ include "cinemaabyss.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "cinemaabyss.labels" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- if .Values.ingress.className }}
-  ingressClassName: {{ .Values.ingress.className }}
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
   {{- end }}
   rules:
-  {{- range .Values.ingress.hosts }}
-  - host: {{ .host }}
-    http:
-      paths:
-      {{- range .paths }}
-      - path: {{ .path }}
-        pathType: {{ .pathType }}
-        backend:
-          service:
-            name: {{ .service }}
-            port:
-              number: {{ .port }}
-      {{- end }}
-  {{- end }}
+    {{- range $host := .Values.ingress.hosts }}
+    - host: {{ $host.host }}
+      http:
+        paths:
+          {{- range $p := $host.paths }}
+          - path: {{ $p.path }}
+            pathType: {{ default "Prefix" $p.pathType }}
+            backend:
+              service:
+                name: {{ $p.service }}
+                port:
+                  number: {{ $p.port | int }}
+          {{- end }}
+    {{- end }}
 {{- end }}
