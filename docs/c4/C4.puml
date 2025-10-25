@@ -1,0 +1,15 @@
+' Minimal offline C4 stub. No external links required.
+!define Person(a,b,c) rectangle a as b <<Person>>
+!define Person_Ext(a,b,c) rectangle a as b <<External Person>>
+!define System(a,b,c) rectangle a as b <<System>>
+!define System_Ext(a,b,c) rectangle a as b <<External System>>
+!define Container(a,b,c,d) rectangle a as b <<Container>>
+!define ContainerDb(a,b,c,d) database a as b <<Container>>
+!define Container_Boundary(i,t) frame t as i
+!define System_Boundary(i,t) package t as i
+!define Component(a,b,c,d) rectangle a as b <<Component>>
+!define Component_Ext(a,b,c,d) rectangle a as b <<External Component>>
+!define LAYOUT_WITH_LEGEND()
+!define Rel(a,b,l,t) a --> b : l
+skinparam linetype ortho
+skinparam shadowing false
