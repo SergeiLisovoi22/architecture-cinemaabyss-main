@@ -1,7 +1,7 @@
 
 ---
 
-### ✅ `docs/docs/cinema/container.md`  (главная To-Be диаграмма)
+### ✅ `docs/docs/cinema/container.md`
 
 ```md
 # C4 — Диаграмма контейнеров (To-Be)

@@ -1,7 +1,7 @@
 
 ---
 
-### ✅ `docs/docs/cinema/code.md`  (самая детальная)
+### ✅ `docs/docs/cinema/code.md`
 
 ```md
 # C4 — Диаграмма кода (Proxy + Events)

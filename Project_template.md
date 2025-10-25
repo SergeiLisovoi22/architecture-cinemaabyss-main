@@ -5,8 +5,10 @@
 1. Спроектируйте to be архитектуру КиноБездны, разделив всю систему на отдельные домены и организовав интеграционное взаимодействие и единую точку вызова сервисов.
 Результат представьте в виде контейнерной диаграммы в нотации С4.
 Добавьте ссылку на файл в этот шаблон
-[ссылка на файл](ссылка)
-
+    [Диаграмма контекста](https://github.com/SergeiLisovoi22/architecture-cinemaabyss-main/blob/main/docs/docs/cinema/context.md)
+    [Диаграмма контейнеров](https://github.com/SergeiLisovoi22/architecture-cinemaabyss-main/blob/main/docs/docs/cinema/container.md)
+    [Диаграмма компонентов](https://github.com/SergeiLisovoi22/architecture-cinemaabyss-main/blob/main/docs/docs/cinema/component.md)   
+    [Диаграмма кода](https://github.com/SergeiLisovoi22/architecture-cinemaabyss-main/blob/main/docs/docs/cinema/code.md)
 # Задание 2
 
 ### 1. Proxy
@@ -58,6 +60,9 @@
 
 Необходимые тесты для проверки этого API вызываются при запуске npm run test:local из папки tests/postman 
 Приложите скриншот тестов и скриншот состояния топиков Kafka из UI http://localhost:8090 
+
+![img.png](img.png)
+![img_1.png](img_1.png)
 
 # Задание 3
 
@@ -273,7 +278,12 @@ cat .docker/config.json | base64
   Откройте логи event-service и сделайте скриншот обработки событий
 
 #### Шаг 3
-Добавьте сюда скриншота вывода при вызове https://cinemaabyss.example.com/api/movies и  скриншот вывода event-service после вызова тестов.
+Добавьте сюда скриншота вывода при вызове https://cinemaabyss.example.com/api/movies 
+![img_4.png](img_4.png)
+
+и  скриншот вывода event-service после вызова тестов.
+
+![img_3.png](img_3.png)
 
 
 # Задание 4
@@ -348,7 +358,12 @@ minikube tunnel
 
 Потом вызовите 
 https://cinemaabyss.example.com/api/movies
-и приложите скриншот развертывания helm и вывода https://cinemaabyss.example.com/api/movies
+и приложите скриншот развертывания helm 
+![img_5.png](img_5.png)
+
+и вывода https://cinemaabyss.example.com/api/movies
+
+![img_6.png](img_6.png)
 
 ## Удаляем все
 
