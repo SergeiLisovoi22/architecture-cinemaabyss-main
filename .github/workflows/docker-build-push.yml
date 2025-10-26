@@ -98,10 +98,7 @@ jobs:
         working-directory: tests/postman
         run: |
           docker build -t cinemaabyss-api-tests .
-          docker run --rm \
-            --network=cinemaabyss-network \  
-            -v "$(pwd)/reports:/app/reports" \
-            cinemaabyss-api-tests
+          docker run --rm --network=cinemaabyss-network -v "$(pwd)/reports:/app/reports" cinemaabyss-api-tests
 
       - name: Docker compose logs (on fail)
         if: failure()
