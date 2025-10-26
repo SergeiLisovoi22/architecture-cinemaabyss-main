@@ -64,7 +64,8 @@ services:
     image: ghcr.io/sergeilisovoi22/cinemaabyss-monolith:latest
     container_name: cinemaabyss-monolith
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
@@ -79,7 +80,8 @@ services:
     image: ghcr.io/sergeilisovoi22/cinemaabyss-movies-service:latest
     container_name: cinemaabyss-movies-service
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "8081:8081"
     environment:
