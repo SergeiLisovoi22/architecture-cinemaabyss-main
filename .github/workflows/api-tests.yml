@@ -24,20 +24,10 @@ jobs:
   api-tests:
     name: Run API Tests
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Log in to GHCR            # ← ДО compose up
-        uses: docker/login-action@v3
-        with:
-            registry: ghcr.io
-            username: ${{ github.actor }}
-            password: ${{ secrets.GHCR_READ_TOKEN }}
+        uses: actions/checkout@v3
 
       - name: Set up Docker Compose
         run: |
@@ -45,7 +35,6 @@ jobs:
       
       - name: Start services with Docker Compose
         run: |
-          docker compose -f docker-compose.ci.yml pull
           docker compose -f docker-compose.ci.yml up -d
           echo "Waiting for services to be ready..."
           sleep 120
