@@ -15,6 +15,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    volumes:
+      - ./src/database/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - cinemaabyss-network
 
