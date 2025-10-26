@@ -15,8 +15,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    volumes:
-      - ./src/database/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - cinemaabyss-network
 
@@ -61,36 +59,33 @@ services:
       - cinemaabyss-network
 
   monolith:
-    image: ghcr.io/sergeilisovoi22/cinemaabyss-monolith:latest
+    build:
+      context: ./src/monolith
+      dockerfile: Dockerfile
     container_name: cinemaabyss-monolith
     depends_on:
-      postgres:
-        condition: service_healthy
+      - postgres
     ports:
       - "8080:8080"
     environment:
       PORT: 8080
       DB_CONNECTION_STRING: postgres://postgres:postgres_password@postgres:5432/cinemaabyss?sslmode=disable
     networks:
-      cinemaabyss-network:
-        aliases:
-          - monolith
+      - cinemaabyss-network
 
   movies-service:
-    image: ghcr.io/sergeilisovoi22/cinemaabyss-movies-service:latest
+    build:
+      context: ./src/microservices/movies
     container_name: cinemaabyss-movies-service
     depends_on:
-      postgres:
-        condition: service_healthy
+      - postgres
     ports:
       - "8081:8081"
     environment:
       PORT: 8081
       DB_CONNECTION_STRING: postgres://postgres:postgres_password@postgres:5432/cinemaabyss?sslmode=disable
     networks:
-      cinemaabyss-network:
-        aliases:
-          - movies-service
+      - cinemaabyss-network
 
   events-service:
     image: ghcr.io/sergeilisovoi22/events-service:latest
@@ -119,9 +114,7 @@ services:
       SPRING_KAFKA_PRODUCER_VALUE_SERIALIZER: org.springframework.kafka.support.serializer.JsonSerializer
       SPRING_KAFKA_PRODUCER_PROPERTIES_SPRING_JSON_ADD_TYPE_HEADERS: "true"
     networks:
-      cinemaabyss-network:
-        aliases:
-          - events-service
+      - cinemaabyss-network
 
   proxy-service:
     image: ghcr.io/sergeilisovoi22/cinemaabyss-proxy-service:latest
@@ -144,13 +137,10 @@ services:
       PROXY_CINEMAABYSS_MOVIES_URL: http://movies-service:8081
       PROXY_CINEMAABYSS_PROXY_ENABLED: "true"
     networks:
-      cinemaabyss-network:
-        aliases:
-          - proxy-service
+      - cinemaabyss-network
 
 networks:
   cinemaabyss-network:
-    name: cinemaabyss-network
     driver: bridge
 
 volumes:
