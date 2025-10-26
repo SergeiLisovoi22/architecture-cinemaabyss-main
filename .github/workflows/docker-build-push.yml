@@ -1,13 +1,13 @@
 name: Docker Build, Push & API Tests
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'src/**'
-      - '.github/workflows/docker-build-push.yml'
-      - 'docker-compose.ci.yml'
-  workflow_dispatch:
+#  push:
+#    branches: [ main ]
+#    paths:
+#      - 'src/**'
+#      - '.github/workflows/docker-build-push.yml'
+#      - 'docker-compose.ci.yml'
+  workflow_dispatch: {}
 
 env:
   REGISTRY: ghcr.io
