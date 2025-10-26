@@ -40,7 +40,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Pre-build monolith & movies images for CI
+        run: |
+          docker build -t ghcr.io/sergeilisovoi22/cinemaabyss-monolith:latest \
+            -f src/monolith/Dockerfile src/monolith
+          docker build -t ghcr.io/sergeilisovoi22/cinemaabyss-movies-service:latest \
+            -f src/microservices/movies/Dockerfile src/microservices/movies
       
+
       - name: Start services with Docker Compose
         run: |
           docker compose -f docker-compose.ci.yml up -d
