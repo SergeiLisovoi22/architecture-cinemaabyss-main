@@ -67,14 +67,17 @@ jobs:
           docker compose -f docker-compose.ci.yml up -d
           docker ps
 
-      - name: Wait for services
+      - name: Wait for services (proxy on 8000)
         run: |
-          # Подождём, пока сервисы поднимутся
-          for i in {1..30}; do
-            curl -fsS http://localhost:8080/actuator/health && break || true
-            sleep 3
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8000/actuator/health >/dev/null; then
+              echo "proxy-service is healthy"; exit 0
+            fi
+            sleep 2
           done
-          # если есть хелсчеки у прокси/ивентов — добавь аналогично
+          echo "proxy-service not healthy in time" >&2
+          docker compose -f docker-compose.ci.yml logs proxy-service || true
+          exit 1
 
       - name: Run API tests
         run: |
