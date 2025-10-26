@@ -66,11 +66,26 @@ jobs:
           docker compose -f docker-compose.ci.yml pull
           docker compose -f docker-compose.ci.yml up -d
           docker ps
+          
+      - name: Debug networks
+        run: docker network ls
+
+      - name: Wait for kafka
+        run: |
+          for i in {1..60}; do
+            if echo > /dev/tcp/kafka/9092 2>/dev/null; then
+              echo "Kafka is ready"; exit 0
+          fi
+          sleep 2
+          done
+          echo "Kafka is NOT ready in time!" >&2
+          docker compose -f docker-compose.ci.yml logs kafka || true
+          exit 1    
 
       - name: Wait for services (proxy on 8000)
         run: |
           for i in {1..60}; do
-            if curl -fsS http://localhost:8000/actuator/health >/dev/null; then
+            if curl -fsS http://proxy-service:8000/health >/dev/null; then
               echo "proxy-service is healthy"; exit 0
             fi
             sleep 2
@@ -80,16 +95,13 @@ jobs:
           exit 1
 
       - name: Run API tests
+        working-directory: tests/postman
         run: |
-          echo "Waiting for services to be fully ready..."
-          sleep 30
-          
-          echo "Running Postman tests..."
-          cd tests/postman
-          npm ci
-          # Покажем доступные скрипты для отладки
-          echo "Available npm scripts:"
-          npm run test:local || npm run test:docker || true
+          docker build -t cinemaabyss-api-tests .
+          docker run --rm \
+            --network=cinemaabyss-network \  
+            -v "$(pwd)/reports:/app/reports" \
+            cinemaabyss-api-tests
 
       - name: Docker compose logs (on fail)
         if: failure()
