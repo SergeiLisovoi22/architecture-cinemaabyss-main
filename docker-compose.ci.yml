@@ -61,9 +61,7 @@ services:
       - cinemaabyss-network
 
   monolith:
-    build:
-      context: ./src/monolith
-      dockerfile: Dockerfile
+    image: ghcr.io/sergeilisovoi22/cinemaabyss-monolith:latest
     container_name: cinemaabyss-monolith
     depends_on:
       - postgres
@@ -78,8 +76,7 @@ services:
           - monolith
 
   movies-service:
-    build:
-      context: ./src/microservices/movies
+    image: ghcr.io/sergeilisovoi22/cinemaabyss-movies-service:latest
     container_name: cinemaabyss-movies-service
     depends_on:
       - postgres
