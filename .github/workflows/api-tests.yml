@@ -49,6 +49,11 @@ jobs:
       - name: Install Newman and dependencies
         working-directory: tests/postman
         run: npm install
+
+      - name: Ensure compose network exists (debug)
+        run: |
+          docker network ls
+          docker network inspect cinemaabyss-network >/dev/null 2>&1 || docker network create cinemaabyss-network  
       
       - name: Run API tests
         working-directory: tests/postman

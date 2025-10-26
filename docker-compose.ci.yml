@@ -141,6 +141,7 @@ services:
 
 networks:
   cinemaabyss-network:
+    name: cinemaabyss-network
     driver: bridge
 
 volumes:
