@@ -53,7 +53,21 @@ jobs:
       - name: Ensure compose network exists (debug)
         run: |
           docker network ls
-          docker network inspect cinemaabyss-network >/dev/null 2>&1 || docker network create cinemaabyss-network  
+          docker network inspect cinemaabyss-network >/dev/null 2>&1 || docker network create cinemaabyss-network
+          
+      - name: Wait for Docker DNS (monolith & movies-service)
+        run: |
+          for i in {1..60}; do
+            if docker run --rm --network=cinemaabyss-network busybox nslookup monolith >/dev/null 2>&1 \
+               && docker run --rm --network=cinemaabyss-network busybox nslookup movies-service >/dev/null 2>&1; then
+              echo "✅ DNS is ready"; exit 0
+            fi
+            echo "⏳ DNS not ready, retry..."
+            sleep 2
+          done
+          echo "❌ DNS did not become ready in time"
+          docker network inspect cinemaabyss-network || true
+          exit 1
       
       - name: Run API tests
         working-directory: tests/postman
