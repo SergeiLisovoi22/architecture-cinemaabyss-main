@@ -101,6 +101,11 @@ jobs:
           echo "proxy-service not healthy in time" >&2
           docker compose -f docker-compose.ci.yml logs proxy-service || true
           exit 1
+          
+      - name: Wait for DNS stabilization
+        run: |
+          echo "Waiting extra time for DNS propagation..."
+          sleep 15    
 
       - name: Run API tests
         working-directory: tests/postman
