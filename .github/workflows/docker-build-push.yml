@@ -68,7 +68,14 @@ jobs:
           docker ps
           
       - name: Debug networks
-        run: docker network ls
+        run: |
+          docker network ls
+          docker network inspect cinemaabyss-network
+
+      - name: DNS smoke (monolith & movies-service)
+        run: |
+          docker run --rm --network=cinemaabyss-network busybox nslookup monolith
+          docker run --rm --network=cinemaabyss-network busybox nslookup movies-service
 
       - name: Wait for kafka
         run: |
