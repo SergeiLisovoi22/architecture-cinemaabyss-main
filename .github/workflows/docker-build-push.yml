@@ -33,12 +33,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GHCR (with PAT)
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+#      - name: Log in to GHCR (with PAT)
+#        uses: docker/login-action@v3
+#        with:
+#          registry: ghcr.io
+#          username: ${{ github.actor }}
+#          password: ${{ secrets.GHCR_PAT }}
 
       # === СБОРКА И ПУШ events-service ИЗ ОТДЕЛЬНОГО РЕПО ===
       - name: Build & Push (events-service)
