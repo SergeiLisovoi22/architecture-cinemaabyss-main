@@ -71,7 +71,9 @@ services:
       PORT: 8080
       DB_CONNECTION_STRING: postgres://postgres:postgres_password@postgres:5432/cinemaabyss?sslmode=disable
     networks:
-      - cinemaabyss-network
+      cinemaabyss-network:
+        aliases:
+          - monolith
 
   movies-service:
     build:
@@ -85,7 +87,9 @@ services:
       PORT: 8081
       DB_CONNECTION_STRING: postgres://postgres:postgres_password@postgres:5432/cinemaabyss?sslmode=disable
     networks:
-      - cinemaabyss-network
+      cinemaabyss-network:
+        aliases:
+          - movies-service
 
   events-service:
     image: ghcr.io/sergeilisovoi22/events-service:latest
@@ -114,7 +118,9 @@ services:
       SPRING_KAFKA_PRODUCER_VALUE_SERIALIZER: org.springframework.kafka.support.serializer.JsonSerializer
       SPRING_KAFKA_PRODUCER_PROPERTIES_SPRING_JSON_ADD_TYPE_HEADERS: "true"
     networks:
-      - cinemaabyss-network
+      cinemaabyss-network:
+        aliases:
+          - events-service
 
   proxy-service:
     image: ghcr.io/sergeilisovoi22/cinemaabyss-proxy-service:latest
@@ -137,7 +143,9 @@ services:
       PROXY_CINEMAABYSS_MOVIES_URL: http://movies-service:8081
       PROXY_CINEMAABYSS_PROXY_ENABLED: "true"
     networks:
-      - cinemaabyss-network
+      cinemaabyss-network:
+        aliases:
+          - proxy-service
 
 networks:
   cinemaabyss-network:
